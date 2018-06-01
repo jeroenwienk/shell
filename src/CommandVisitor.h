@@ -10,11 +10,14 @@
  * pipelines, which in turn will contain the simple commands.
  */
 class CommandVisitor : public ShellGrammarBaseVisitor {
-	public:
-		antlrcpp::Any visitSequence(ShellGrammarParser::SequenceContext *ctx) override;
-		antlrcpp::Any visitPipeline(ShellGrammarParser::PipelineContext *ctx) override;
-		antlrcpp::Any visitSimpleCommand(ShellGrammarParser::SimpleCommandContext *ctx) override;
-		antlrcpp::Any visitString(ShellGrammarParser::StringContext *ctx) override;
+public:
+    antlrcpp::Any visitSequence(ShellGrammarParser::SequenceContext *ctx) override;
+
+    antlrcpp::Any visitPipeline(ShellGrammarParser::PipelineContext *ctx) override;
+
+    antlrcpp::Any visitSimpleCommand(ShellGrammarParser::SimpleCommandContext *ctx) override;
+
+    antlrcpp::Any visitString(ShellGrammarParser::StringContext *ctx) override;
 };
 
 

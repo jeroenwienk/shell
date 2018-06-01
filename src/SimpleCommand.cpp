@@ -11,11 +11,20 @@ void SimpleCommand::execute(Sequence *pSequence) {
 
     std::string commandPath = findCommand(pSequence);
     std::cout << "CommandPath: " << commandPath << std::endl;
-    char **cStringArguments = getArgumentsAsCStrings(pSequence, &command, &arguments);
+
+    std::vector<std::string> vector = this->getArguments();
+    const char *programname = command.c_str();
+    const char **argv = new const char *[vector.size() + 2];
+    argv[0] = programname;
+    for (int j = 0; j < vector.size() + 1; ++j) {
+
+        argv[j + 1] = vector[j].c_str();
+    }
+
+    argv[vector.size() + 1] = NULL;
 
 
-    std::cerr << "cStringArguments Was: " << cStringArguments << std::endl;
-    int ret = execvp(commandPath.c_str(), cStringArguments);
+    int ret = execvp(commandPath.c_str(), (char **) argv);
     std::cerr << "Ret Was: " << commandPath << std::endl;
 }
 
@@ -57,34 +66,6 @@ void SimpleCommand::changeDirectory(Sequence *pSequence, std::string *pPath) {
     }
 
     chdir(pathToGoTo.c_str());
-}
-
-char **SimpleCommand::getArgumentsAsCStrings(Sequence *pSequence, std::string *pCommand,
-                                             std::vector<std::string> *pArguments) const {
-
-//    std::cerr << "Command " << pCommand->c_str() << std::endl;
-//    std::cerr << "Command " << pSequence->getHomeString() << std::endl;
-
-    std::vector<const char *> cStrings;
-    // First insert the command itself;
-    cStrings.insert(cStrings.begin(), pCommand->c_str());
-
-    // Loop and add all remaining arguments
-    for (const std::string &arg : *pArguments) {
-
-        // if the argument is ~ replace it with the home directory
-        if (arg == "~" && !pSequence->getHomeString().empty()) {
-            cStrings.push_back(pSequence->getHomeString().c_str());
-        } else {
-            cStrings.push_back(arg.c_str());
-        }
-    }
-
-    // Add null because this is required
-    cStrings.push_back(NULL);
-
-    auto **cStringArray = const_cast<char **>(&cStrings[0]);
-    return cStringArray;
 }
 
 const std::string &SimpleCommand::getCommand() const {

@@ -13,27 +13,26 @@ class SimpleCommand;
  * is simply executed as is.
  */
 class Pipeline {
-	private:
-		std::vector<SimpleCommand *> commands; //< The commands to execute
-		bool async;                            //< True if this the sequence does not need to wait for the
-		                                       //  pipeline to finish.
+private:
+    std::vector<SimpleCommand *> commands; //< The commands to execute
+    bool async;                            //< True if this the sequence does not need to wait for the
+    //  pipeline to finish.
 
-	public:
-		Pipeline()
-				: commands()
-				, async(false)
-		{}
+public:
+    Pipeline()
+            : commands(), async(false) {}
 
-		~Pipeline();
+    ~Pipeline();
 
-		bool isAsync() const    { return async; }
-		void setAsync( bool b ) { async = b; }
+    bool isAsync() const { return async; }
 
-		void addCommand( SimpleCommand *cmd ) { commands.push_back(cmd); }
+    void setAsync(bool b) { async = b; }
 
-	const std::vector<SimpleCommand *> &getCommands() const;
+    void addCommand(SimpleCommand *cmd) { commands.push_back(cmd); }
 
-	void execute(Sequence *pSequence);
+    const std::vector<SimpleCommand *> &getCommands() const;
+
+    void execute(Sequence *pSequence);
 };
 
 

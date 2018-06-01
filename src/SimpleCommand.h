@@ -39,10 +39,7 @@ public:
     const std::vector<std::string> &getArguments() const;
 
     std::string findCommand(Sequence *pSequence);
-
-    char **
-    getArgumentsAsCStrings(Sequence *pSequence, std::string *pCommand, std::vector<std::string> *pArguments) const;
-
+    
     void changeDirectory(Sequence *pSequence, std::string *pPath);
 };
 
