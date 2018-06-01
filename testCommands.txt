@@ -1,3 +1,7 @@
-rm 100mb.test ; wget http://cachefly.cachefly.net/100mb.test & md5sum 100mb.test
+rm 100mb.test ; wget http://cachefly.cachefly.net/100mb.test & ls -al | grep shell
 rm 100mb.test ; wget http://cachefly.cachefly.net/100mb.test ; md5sum 100mb.test
 rm 100mb.test ; wget http://cachefly.cachefly.net/100mb.test
+
+find /home/jeroen -empty
+
+ls -al | grep shell | grep cbp

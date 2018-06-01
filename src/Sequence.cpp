@@ -55,7 +55,7 @@ void Sequence::execute() {
 }
 
 /**
- * Method to take the PATH string and return an array of strings
+ * Take the PATH string and convert it to an array of strings
  * @return array of strings containing paths
  */
 std::vector<std::string> Sequence::generatePathArray(std::string pathString) {
@@ -74,7 +74,7 @@ std::vector<std::string> Sequence::generatePathArray(std::string pathString) {
 }
 
 /**
- * Utility for logging all available pahts
+ * Utility for logging all available paths including the home path
  */
 void Sequence::logPaths() {
     std::cout << "Paths:" << std::endl;
