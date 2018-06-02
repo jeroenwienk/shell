@@ -76,3 +76,5 @@ cat < input.txt
 cat < input.txt | grep i
 cat < input.txt
 cat < input.txt
+cat < input.txt
+find ~ -empty

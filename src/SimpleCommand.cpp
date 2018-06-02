@@ -39,24 +39,9 @@ void SimpleCommand::execute(Sequence *pSequence) {
         exit(0);
     }
 
-    // the arguments can not be provided to execvp as a vector
-    std::vector<std::string> args = this->getArguments();
-    const char *commandCString = command.c_str();
-    const auto **argv = new const char *[args.size() + 2];
-    argv[0] = commandCString;
+    char **formattedArguments = getFormattedArguments(pSequence, &command, &arguments);
 
-    // FIXME if an argument is ~ it probably means the home path of the user
-    // FIXME so replace ~ with home path
-    // FIXME doing this will somehow prevent any output being logged
-    // FIXME no clue why
-
-    for (int j = 0; j < args.size() + 1; ++j) {
-        argv[j + 1] = args[j].c_str();
-    }
-
-    argv[args.size() + 1] = NULL;
-
-    int ret = execvp(commandPath.c_str(), (char **) argv);
+    int ret = execvp(commandPath.c_str(), formattedArguments);
 }
 
 void SimpleCommand::processRedirects() {
@@ -64,9 +49,9 @@ void SimpleCommand::processRedirects() {
     int fdOut = std::numeric_limits<int>::min();
     int fdErr = std::numeric_limits<int>::min();
 
-    //std::vector<std::string> errors;
+    std::vector<std::string> errors;
 
-    for (auto redirect : redirects) {
+    for (const auto &redirect : redirects) {
 
         if (!redirect.getNewFile().empty() &&
             (redirect.getType() == IORedirect::OUTPUT || redirect.getType() == IORedirect::APPEND)) {
@@ -98,52 +83,39 @@ void SimpleCommand::processRedirects() {
         }
 
         if (!redirect.getNewFile().empty() && redirect.getType() == IORedirect::INPUT) {
-//            std::cout << redirect.getOldFileDescriptor() << std::endl;
-//            std::cout << redirect.getNewFile().c_str() << std::endl;
-//            std::cout << redirect.getType() << std::endl;
 
             fdIn = open(redirect.getNewFile().c_str(), IORedirect::READ_FLAGS, 0644);
             if (fdIn == -1) {
-//                switch (errno) {
-//                    case ENOENT:
-//                        errors.emplace_back("No such file or directory");
-//                        break;
-//                    case EACCES:
-//                        errors.emplace_back("Permission denied");
-//                        break;
-//                    case EISDIR:
-//                        errors.emplace_back("Is a directory");
-//                        break;
-//                    default:
-//                        errors.emplace_back("Could not open file");
-//                        break;
-//                }
+                switch (errno) {
+                    case ENOENT:
+                        errors.emplace_back("No such file or directory");
+                        break;
+                    case EACCES:
+                        errors.emplace_back("Permission denied");
+                        break;
+                    case EISDIR:
+                        errors.emplace_back("Is a directory");
+                        break;
+                    default:
+                        errors.emplace_back("Could not open file");
+                        break;
+                }
             }
 
         }
 
         if (fdOut == -1) {
-            std::cerr << errno << std::endl;
-            //errors.emplace_back("Could not open or create file");
+            errors.emplace_back("Could not open or create file");
         }
     }
-    //std::cerr << "fdIn " << fdIn << std::endl;
 
-
-    if (fdIn != std::numeric_limits<int>::min()) {
-        int returnValue = dup2(fdIn, 0);
-//        std::cerr << "errno " << errno << std::endl;
-//        std::cerr << "dup2 " << returnValue << std::endl;
-    };
+    if (fdIn != std::numeric_limits<int>::min()) dup2(fdIn, 0);
     if (fdOut != std::numeric_limits<int>::min()) dup2(fdOut, 1);
     if (fdErr != std::numeric_limits<int>::min()) dup2(fdErr, 2);
 
-
-
-
-//    for (const auto &error : errors) {
-//        std::cerr << error << std::endl;
-//    }
+    for (const auto &error : errors) {
+        std::cerr << error << std::endl;
+    }
 }
 
 /**
@@ -216,6 +188,32 @@ void SimpleCommand::changeDirectory(Sequence *pSequence, std::string *pPath) {
         }
     }
 }
+
+char **SimpleCommand::getFormattedArguments(Sequence *pSequence, const std::string *command,
+                                            const std::vector<std::string> *arguments) const {
+    std::vector<const char *> cStrings;
+
+    // First insert the command itself;
+    cStrings.insert(cStrings.begin(), command->c_str());
+
+    // Loop and add all remaining arguments
+    for (const std::string &arg : *arguments) {
+
+        // if the argument is ~ replace it with the home directory
+        if (arg == "~" && !pSequence->getHomeString().empty()) {
+            cStrings.push_back(pSequence->getHomeString().c_str());
+        } else {
+            cStrings.push_back(arg.c_str());
+        }
+    }
+
+    // Add null because this is required
+    cStrings.push_back(NULL);
+
+    auto **ret = const_cast<char **>(&cStrings[0]);
+    return ret;
+}
+
 
 const std::string &SimpleCommand::getCommand() const {
     return command;
