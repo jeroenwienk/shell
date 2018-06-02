@@ -2,6 +2,9 @@
 #include <ANTLRInputStream.h>
 #include <CommonTokenStream.h>
 #include <tree/ParseTree.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <cstring>
 #include "../gen/ShellGrammarLexer.h"
 #include "../gen/ShellGrammarParser.h"
 #include "CommandVisitor.h"
@@ -27,6 +30,11 @@ public:
 
 int main() {
     static const char *PROMPT = "-> ";
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+
+    int fdHistory = open("history.txt", O_WRONLY | O_APPEND | O_CREAT, 0644);
+
     while (true) {
         // Print a prompt
         std::cout << PROMPT;
@@ -36,12 +44,16 @@ int main() {
         std::string line;
         std::getline(std::cin, line);
 
+        std::string historyLine = line.append("\n");
+
+        write(fdHistory, historyLine.c_str(), strlen(historyLine.c_str()));
+
         // Check if the user typed 'exit'.
         // Now this is a bit of a hack, since the nice way to do this is actually
         // just check for 'exit' in the SimpleCommand-class.
         // You are encouraged to remove this hack and handle things 'the nice way'.
-        if (line == "exit")
-            break;
+        //        if (line == "exit")
+        //            break;
 
         // Create an error listener. This will be called when an error occured.
         ErrorListener errorListener;
@@ -75,5 +87,6 @@ int main() {
             delete sequence;
         }
     }
+#pragma clang diagnostic pop
     return 0;
 }

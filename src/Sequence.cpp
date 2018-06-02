@@ -33,6 +33,9 @@ void Sequence::execute() {
             std::string path = arguments.empty() ? "" : arguments.front();
             firstCommand->changeDirectory(this, &path);
             continue;
+        } else if (firstCommand->getCommand() == "exit" && p->getCommands().size() == 1) {
+            std::cout << "exiting, goodbye!" << std::endl;
+            exit(0);
         }
 
         int childPid = fork();
@@ -43,10 +46,7 @@ void Sequence::execute() {
             int returnValue;
 
             if (!p->isAsync()) {
-                std::cout << "we are going to wait" << std::endl;
                 waitpid(childPid, &returnValue, 0);
-            } else {
-                std::cout << "we are going not waiting" << std::endl;
             }
         }
 

@@ -3,6 +3,9 @@
 #include "SimpleCommand.h"
 #include "Sequence.h"
 #include <cerrno>
+#include <climits>
+#include <fcntl.h>
+#include <limits>
 
 /**
  * Execute this command
@@ -12,8 +15,14 @@ void SimpleCommand::execute(Sequence *pSequence) {
     // Both cd and pwd are special cases
     // cd is handled in the parent process since changing it in child will have no effect
     // on the parent
-    if (command == "cd") {
-        std::cerr << "command cd does not work inside a pipeline" << std::endl;
+
+    this->processRedirects();
+
+    if (command == "cd" || command == "exit") {
+        std::cerr << "command " << command << " does not work inside a pipeline" << std::endl;
+        // clear and ignore for possible broken pipe
+        std::cin.clear();
+        std::cin.ignore(INT_MAX);
         exit(0);
     } else if (command == "pwd") {
         char cwd[1024];
@@ -48,6 +57,93 @@ void SimpleCommand::execute(Sequence *pSequence) {
     argv[args.size() + 1] = NULL;
 
     int ret = execvp(commandPath.c_str(), (char **) argv);
+}
+
+void SimpleCommand::processRedirects() {
+    int fdIn = std::numeric_limits<int>::min();
+    int fdOut = std::numeric_limits<int>::min();
+    int fdErr = std::numeric_limits<int>::min();
+
+    //std::vector<std::string> errors;
+
+    for (auto redirect : redirects) {
+
+        if (!redirect.getNewFile().empty() &&
+            (redirect.getType() == IORedirect::OUTPUT || redirect.getType() == IORedirect::APPEND)) {
+            // We need to output to another filedescriptor
+
+            int flags = redirect.getType() == IORedirect::OUTPUT ? IORedirect::TRUNC_FLAGS : IORedirect::APPEND_FLAGS;
+            unsigned long found = redirect.getNewFile().find('&');
+
+            if (redirect.getOldFileDescriptor() == 1) {
+                // The old one was stdout
+
+                if (found == 0) {
+                    fdOut = stoi(redirect.getNewFile().substr(found + 1));
+                } else {
+                    fdOut = open(redirect.getNewFile().c_str(), flags, 0644);
+                }
+
+
+            } else if (redirect.getOldFileDescriptor() == 2) {
+                // The old one was stderr
+
+                if (found == 0) {
+                    fdErr = stoi(redirect.getNewFile().substr(found + 1));
+                } else {
+                    fdErr = open(redirect.getNewFile().c_str(), flags, 0644);
+                }
+            }
+
+        }
+
+        if (!redirect.getNewFile().empty() && redirect.getType() == IORedirect::INPUT) {
+//            std::cout << redirect.getOldFileDescriptor() << std::endl;
+//            std::cout << redirect.getNewFile().c_str() << std::endl;
+//            std::cout << redirect.getType() << std::endl;
+
+            fdIn = open(redirect.getNewFile().c_str(), IORedirect::READ_FLAGS, 0644);
+            if (fdIn == -1) {
+//                switch (errno) {
+//                    case ENOENT:
+//                        errors.emplace_back("No such file or directory");
+//                        break;
+//                    case EACCES:
+//                        errors.emplace_back("Permission denied");
+//                        break;
+//                    case EISDIR:
+//                        errors.emplace_back("Is a directory");
+//                        break;
+//                    default:
+//                        errors.emplace_back("Could not open file");
+//                        break;
+//                }
+            }
+
+        }
+
+        if (fdOut == -1) {
+            std::cerr << errno << std::endl;
+            //errors.emplace_back("Could not open or create file");
+        }
+    }
+    //std::cerr << "fdIn " << fdIn << std::endl;
+
+
+    if (fdIn != std::numeric_limits<int>::min()) {
+        int returnValue = dup2(fdIn, 0);
+//        std::cerr << "errno " << errno << std::endl;
+//        std::cerr << "dup2 " << returnValue << std::endl;
+    };
+    if (fdOut != std::numeric_limits<int>::min()) dup2(fdOut, 1);
+    if (fdErr != std::numeric_limits<int>::min()) dup2(fdErr, 2);
+
+
+
+
+//    for (const auto &error : errors) {
+//        std::cerr << error << std::endl;
+//    }
 }
 
 /**
@@ -107,7 +203,7 @@ void SimpleCommand::changeDirectory(Sequence *pSequence, std::string *pPath) {
     if (returnValue != 0) {
         switch (errno) {
             case ENOENT:
-                std::cerr << "No such file or directory or missing" << std::endl;
+                std::cerr << "No such file or directory" << std::endl;
                 break;
             case EACCES:
                 std::cerr << "Permission denied" << std::endl;
@@ -128,3 +224,5 @@ const std::string &SimpleCommand::getCommand() const {
 const std::vector<std::string> &SimpleCommand::getArguments() const {
     return arguments;
 }
+
+

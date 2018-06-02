@@ -41,6 +41,8 @@ public:
     std::string findCommand(Sequence *pSequence);
     
     void changeDirectory(Sequence *pSequence, std::string *pPath);
+
+    void processRedirects();
 };
 
 

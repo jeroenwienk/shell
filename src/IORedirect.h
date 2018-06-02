@@ -2,12 +2,17 @@
 #define SHELL_IOREDIRECT_H
 
 #include <string>
+#include <fcntl.h>
 
 class IORedirect {
 public:
     enum Type {
         OUTPUT, APPEND, INPUT
     };
+
+    static const int TRUNC_FLAGS = O_WRONLY | O_TRUNC | O_CREAT;
+    static const int APPEND_FLAGS = O_WRONLY | O_APPEND | O_CREAT;
+    static const int READ_FLAGS = O_RDONLY;
 
 private:
     int oldFileDesc;      //< The file descriptor that is subject of redirection.
