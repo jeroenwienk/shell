@@ -33,7 +33,7 @@ int main() {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 
-    int fdHistory = open("history.txt", O_WRONLY | O_APPEND | O_CREAT, 0644);
+    int fdHistory = open("/var/tmp/history.txt", O_WRONLY | O_APPEND | O_CREAT, 0644);
 
     while (true) {
         // Print a prompt
@@ -45,8 +45,6 @@ int main() {
         std::getline(std::cin, line);
 
         std::string historyLine = line.append("\n");
-
-        write(fdHistory, historyLine.c_str(), strlen(historyLine.c_str()));
 
         // Check if the user typed 'exit'.
         // Now this is a bit of a hack, since the nice way to do this is actually
@@ -86,6 +84,9 @@ int main() {
             // Cleanup
             delete sequence;
         }
+
+        // write to history after execution
+        write(fdHistory, historyLine.c_str(), strlen(historyLine.c_str()));
     }
 #pragma clang diagnostic pop
     return 0;

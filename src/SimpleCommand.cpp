@@ -12,12 +12,13 @@
  * @param pSequence pointer to the sequence of this command
  */
 void SimpleCommand::execute(Sequence *pSequence) {
+
+    // first set up the proper redirects
+    this->processRedirects();
+
     // Both cd and pwd are special cases
     // cd is handled in the parent process since changing it in child will have no effect
     // on the parent
-
-    this->processRedirects();
-
     if (command == "cd" || command == "exit") {
         std::cerr << "command " << command << " does not work inside a pipeline" << std::endl;
         // clear and ignore for possible broken pipe
@@ -29,6 +30,14 @@ void SimpleCommand::execute(Sequence *pSequence) {
         getcwd(cwd, sizeof(cwd));
         std::cout << cwd << std::endl;
         exit(0);
+    } else if (command == "history") {
+        char *argv[] = { "cat", "/var/tmp/history.txt", NULL };
+        int ret = execvp( "/bin/cat", argv );
+        exit(EXIT_FAILURE);
+    } else if (command == "lastcommand") {
+        char *argv[] = { "tail", "-n", "10", "/var/tmp/history.txt", NULL };
+        int ret = execvp( "/usr/bin/tail", argv );
+        exit(EXIT_FAILURE);
     }
 
     // e.g /bin/ls
@@ -39,9 +48,12 @@ void SimpleCommand::execute(Sequence *pSequence) {
         exit(0);
     }
 
+    std::cout << "CommandPath " << commandPath << std::endl;
+
     char **formattedArguments = getFormattedArguments(pSequence, &command, &arguments);
 
     int ret = execvp(commandPath.c_str(), formattedArguments);
+    exit(EXIT_FAILURE);
 }
 
 void SimpleCommand::processRedirects() {
@@ -69,6 +81,23 @@ void SimpleCommand::processRedirects() {
                     fdOut = open(redirect.getNewFile().c_str(), flags, 0644);
                 }
 
+                if (fdOut == -1) {
+                    switch (errno) {
+                        case ENOENT:
+                            errors.emplace_back("No such file or directory");
+                            break;
+                        case EACCES:
+                            errors.emplace_back("Permission denied");
+                            break;
+                        case EISDIR:
+                            errors.emplace_back("Is a directory");
+                            break;
+                        default:
+                            errors.emplace_back("Could not open file");
+                            break;
+                    }
+                }
+
 
             } else if (redirect.getOldFileDescriptor() == 2) {
                 // The old one was stderr
@@ -77,6 +106,23 @@ void SimpleCommand::processRedirects() {
                     fdErr = stoi(redirect.getNewFile().substr(found + 1));
                 } else {
                     fdErr = open(redirect.getNewFile().c_str(), flags, 0644);
+                }
+
+                if (fdErr == -1) {
+                    switch (errno) {
+                        case ENOENT:
+                            errors.emplace_back("No such file or directory");
+                            break;
+                        case EACCES:
+                            errors.emplace_back("Permission denied");
+                            break;
+                        case EISDIR:
+                            errors.emplace_back("Is a directory");
+                            break;
+                        default:
+                            errors.emplace_back("Could not open file");
+                            break;
+                    }
                 }
             }
 
@@ -104,17 +150,18 @@ void SimpleCommand::processRedirects() {
 
         }
 
-        if (fdOut == -1) {
-            errors.emplace_back("Could not open or create file");
-        }
     }
 
-    if (fdIn != std::numeric_limits<int>::min()) dup2(fdIn, 0);
-    if (fdOut != std::numeric_limits<int>::min()) dup2(fdOut, 1);
-    if (fdErr != std::numeric_limits<int>::min()) dup2(fdErr, 2);
+    if (fdIn != std::numeric_limits<int>::min() && fdIn != -1) dup2(fdIn, 0);
+    if (fdOut != std::numeric_limits<int>::min() && fdOut != -1) dup2(fdOut, 1);
+    if (fdErr != std::numeric_limits<int>::min() && fdErr != -1) dup2(fdErr, 2);
 
     for (const auto &error : errors) {
         std::cerr << error << std::endl;
+    }
+
+    if (!errors.empty()) {
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -198,6 +245,8 @@ char **SimpleCommand::getFormattedArguments(Sequence *pSequence, const std::stri
 
     // Loop and add all remaining arguments
     for (const std::string &arg : *arguments) {
+
+        std::cout << "arg " << arg << std::endl;
 
         // if the argument is ~ replace it with the home directory
         if (arg == "~" && !pSequence->getHomeString().empty()) {
