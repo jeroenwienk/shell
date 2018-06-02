@@ -44,9 +44,7 @@ public:
 
     void processRedirects();
 
-    char **
-    getFormattedArguments(Sequence *pSequence, const std::string *command,
-                          const std::vector<std::string> *arguments) const;
+    void checkForErrno(std::vector<std::string> *errors);
 };
 
 

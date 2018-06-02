@@ -2,8 +2,13 @@ rm 100mb.test ; wget http://cachefly.cachefly.net/100mb.test & ls -al | grep dec
 rm 100mb.test ; wget http://cachefly.cachefly.net/100mb.test ; md5sum 100mb.test
 rm 100mb.test ; wget http://cachefly.cachefly.net/100mb.test
 
-find /home/jeroen -empty
+find ~ -empty
 
 ls -al | grep shell | grep cbp
 
 cat < input.txt 2> errors.txt >> output.txt
+
+
+cat < ~/Documents/forbidden.txt
+
+cat < /home/jeroen/Documents/forbidden.txt

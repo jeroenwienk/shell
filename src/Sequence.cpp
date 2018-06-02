@@ -41,7 +41,7 @@ void Sequence::execute() {
         int childPid = fork();
         if (childPid == 0) {
             p->execute(this);
-            exit(EXIT_FAILURE);
+            return;
         } else {
             int returnValue;
 
@@ -49,8 +49,7 @@ void Sequence::execute() {
                 waitpid(childPid, &returnValue, 0);
             }
         }
-
-
+        
     }
 }
 

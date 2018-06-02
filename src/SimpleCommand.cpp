@@ -31,28 +31,47 @@ void SimpleCommand::execute(Sequence *pSequence) {
         std::cout << cwd << std::endl;
         exit(0);
     } else if (command == "history") {
-        char *argv[] = { "cat", "/var/tmp/history.txt", NULL };
-        int ret = execvp( "/bin/cat", argv );
+        char *argv[] = {"cat", "/var/tmp/history.txt", NULL};
+        int ret = execvp("/bin/cat", argv);
         exit(EXIT_FAILURE);
     } else if (command == "lastcommand") {
-        char *argv[] = { "tail", "-n", "10", "/var/tmp/history.txt", NULL };
-        int ret = execvp( "/usr/bin/tail", argv );
+        char *argv[] = {"tail", "-n", "10", "/var/tmp/history.txt", NULL};
+        int ret = execvp("/usr/bin/tail", argv);
         exit(EXIT_FAILURE);
     }
 
     // e.g /bin/ls
     std::string commandPath = findCommand(pSequence);
 
+    // command was not found in any of the paths or in the current directory (on ./cmd)
     if (commandPath.empty()) {
         std::cerr << command << ": command not found" << std::endl;
         exit(0);
     }
 
-    std::cout << "CommandPath " << commandPath << std::endl;
+    // the arguments can not be provided to execvp as a vector
+    std::vector<std::string> args = this->getArguments();
 
-    char **formattedArguments = getFormattedArguments(pSequence, &command, &arguments);
+    // we need +2 for the command an NULL
+    char *argv[this->getArguments().size() + 2];
+    argv[0] = const_cast<char *>(command.c_str());
 
-    int ret = execvp(commandPath.c_str(), formattedArguments);
+    // this little statement took about 4 hours of debugging!!!!
+    // statement was args.size() + 1 and caused no errors :(
+    for (int j = 0; j < args.size(); ++j) {
+        if (args[j] == "~" && !pSequence->getHomeString().empty()) {
+            // ~ represents user home
+            argv[j + 1] = const_cast<char *>(pSequence->getHomeString().c_str());
+        } else {
+            argv[j + 1] = const_cast<char *>(args[j].c_str());
+        }
+
+    }
+
+    // and last add null to the args
+    argv[args.size() + 1] = NULL;
+
+    int ret = execvp(commandPath.c_str(), argv);
     exit(EXIT_FAILURE);
 }
 
@@ -63,12 +82,15 @@ void SimpleCommand::processRedirects() {
 
     std::vector<std::string> errors;
 
+    // TODO replace redit ~/ with home
+
     for (const auto &redirect : redirects) {
 
         if (!redirect.getNewFile().empty() &&
             (redirect.getType() == IORedirect::OUTPUT || redirect.getType() == IORedirect::APPEND)) {
             // We need to output to another filedescriptor
 
+            // set up append or overwrite flags
             int flags = redirect.getType() == IORedirect::OUTPUT ? IORedirect::TRUNC_FLAGS : IORedirect::APPEND_FLAGS;
             unsigned long found = redirect.getNewFile().find('&');
 
@@ -76,26 +98,14 @@ void SimpleCommand::processRedirects() {
                 // The old one was stdout
 
                 if (found == 0) {
+                    // get the new one after &
                     fdOut = stoi(redirect.getNewFile().substr(found + 1));
                 } else {
                     fdOut = open(redirect.getNewFile().c_str(), flags, 0644);
                 }
 
                 if (fdOut == -1) {
-                    switch (errno) {
-                        case ENOENT:
-                            errors.emplace_back("No such file or directory");
-                            break;
-                        case EACCES:
-                            errors.emplace_back("Permission denied");
-                            break;
-                        case EISDIR:
-                            errors.emplace_back("Is a directory");
-                            break;
-                        default:
-                            errors.emplace_back("Could not open file");
-                            break;
-                    }
+                    checkForErrno(&errors);
                 }
 
 
@@ -103,49 +113,23 @@ void SimpleCommand::processRedirects() {
                 // The old one was stderr
 
                 if (found == 0) {
+                    // get the new one after &
                     fdErr = stoi(redirect.getNewFile().substr(found + 1));
                 } else {
                     fdErr = open(redirect.getNewFile().c_str(), flags, 0644);
                 }
 
                 if (fdErr == -1) {
-                    switch (errno) {
-                        case ENOENT:
-                            errors.emplace_back("No such file or directory");
-                            break;
-                        case EACCES:
-                            errors.emplace_back("Permission denied");
-                            break;
-                        case EISDIR:
-                            errors.emplace_back("Is a directory");
-                            break;
-                        default:
-                            errors.emplace_back("Could not open file");
-                            break;
-                    }
+                    checkForErrno(&errors);
                 }
             }
 
         }
 
         if (!redirect.getNewFile().empty() && redirect.getType() == IORedirect::INPUT) {
-
             fdIn = open(redirect.getNewFile().c_str(), IORedirect::READ_FLAGS, 0644);
             if (fdIn == -1) {
-                switch (errno) {
-                    case ENOENT:
-                        errors.emplace_back("No such file or directory");
-                        break;
-                    case EACCES:
-                        errors.emplace_back("Permission denied");
-                        break;
-                    case EISDIR:
-                        errors.emplace_back("Is a directory");
-                        break;
-                    default:
-                        errors.emplace_back("Could not open file");
-                        break;
-                }
+                checkForErrno(&errors);
             }
 
         }
@@ -236,33 +220,25 @@ void SimpleCommand::changeDirectory(Sequence *pSequence, std::string *pPath) {
     }
 }
 
-char **SimpleCommand::getFormattedArguments(Sequence *pSequence, const std::string *command,
-                                            const std::vector<std::string> *arguments) const {
-    std::vector<const char *> cStrings;
-
-    // First insert the command itself;
-    cStrings.insert(cStrings.begin(), command->c_str());
-
-    // Loop and add all remaining arguments
-    for (const std::string &arg : *arguments) {
-
-        std::cout << "arg " << arg << std::endl;
-
-        // if the argument is ~ replace it with the home directory
-        if (arg == "~" && !pSequence->getHomeString().empty()) {
-            cStrings.push_back(pSequence->getHomeString().c_str());
-        } else {
-            cStrings.push_back(arg.c_str());
-        }
+void SimpleCommand::checkForErrno(std::vector<std::string> *errors) {
+    switch (errno) {
+        case ENOENT:
+            errors->emplace_back("No such file or directory");
+            break;
+        case EACCES:
+            errors->emplace_back("Permission denied");
+            break;
+        case EISDIR:
+            errors->emplace_back("Is a directory");
+            break;
+        case ENOTDIR:
+            errors->emplace_back("Path is not a directory");
+            break;
+        default:
+            errors->emplace_back("Could not open file");
+            break;
     }
-
-    // Add null because this is required
-    cStrings.push_back(NULL);
-
-    auto **ret = const_cast<char **>(&cStrings[0]);
-    return ret;
 }
-
 
 const std::string &SimpleCommand::getCommand() const {
     return command;

@@ -18,6 +18,8 @@ Pipeline::~Pipeline() {
  */
 void Pipeline::execute(Sequence *pSequence) {
 
+    std::cout << "executing pipe" << std::endl;
+
     //pSequence->logPaths();
 
     unsigned long numOfPipes = commands.size();
