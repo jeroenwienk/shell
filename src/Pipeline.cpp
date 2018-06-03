@@ -17,9 +17,6 @@ Pipeline::~Pipeline() {
  * Executes the commands on this pipeline.
  */
 void Pipeline::execute(Sequence *pSequence) {
-
-    std::cout << "executing pipe" << std::endl;
-
     //pSequence->logPaths();
 
     unsigned long numOfPipes = commands.size();
@@ -43,6 +40,7 @@ void Pipeline::execute(Sequence *pSequence) {
         if (childPid == 0) {
 
             // if not the last command
+            // the child will output to the next command
             if (i < commands.size() - 1) {
                 if (dup2(pipes[counter + 1], 1) < 0) {
                     std::cerr << "Failed dup2" << std::endl;
@@ -51,6 +49,7 @@ void Pipeline::execute(Sequence *pSequence) {
             }
 
             // if not the first command
+            // the child will get his input from the previous command
             if (i != 0) {
                 if (dup2(pipes[counter - 2], 0) < 0) {
                     std::cerr << "Failed dup2" << std::endl;
@@ -58,6 +57,7 @@ void Pipeline::execute(Sequence *pSequence) {
                 }
             }
 
+            // pipes are connected close them
             for (int j = 0; j < 2 * numOfPipes; j++) {
                 close(pipes[j]);
             }
@@ -73,12 +73,13 @@ void Pipeline::execute(Sequence *pSequence) {
         counter += 2;
     }
 
+    // close pipes of parent
     for (int j = 0; j < 2 * numOfPipes; j++) {
         close(pipes[j]);
     }
 
 
-    for (int j = 0; j < numOfPipes + 1; j++) {
+    for (int j = 0; j < numOfPipes; j++) {
         wait(&status);
     }
 

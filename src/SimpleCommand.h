@@ -42,7 +42,7 @@ public:
 
     void changeDirectory(Sequence *pSequence, std::string *pPath);
 
-    void processRedirects();
+    void processRedirects(Sequence *pSequence);
 
     void checkForErrno(std::vector<std::string> *errors);
 };

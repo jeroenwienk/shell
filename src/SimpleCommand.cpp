@@ -14,16 +14,13 @@
 void SimpleCommand::execute(Sequence *pSequence) {
 
     // first set up the proper redirects
-    this->processRedirects();
+    this->processRedirects(pSequence);
 
     // Both cd and pwd are special cases
     // cd is handled in the parent process since changing it in child will have no effect
     // on the parent
     if (command == "cd" || command == "exit") {
         std::cerr << "command " << command << " does not work inside a pipeline" << std::endl;
-        // clear and ignore for possible broken pipe
-        std::cin.clear();
-        std::cin.ignore(INT_MAX);
         exit(0);
     } else if (command == "pwd") {
         char cwd[1024];
@@ -35,7 +32,7 @@ void SimpleCommand::execute(Sequence *pSequence) {
         int ret = execvp("/bin/cat", argv);
         exit(EXIT_FAILURE);
     } else if (command == "lastcommand") {
-        char *argv[] = {"tail", "-n", "10", "/var/tmp/history.txt", NULL};
+        char *argv[] = {"tail", "-n", "1", "/var/tmp/history.txt", NULL};
         int ret = execvp("/usr/bin/tail", argv);
         exit(EXIT_FAILURE);
     }
@@ -75,33 +72,46 @@ void SimpleCommand::execute(Sequence *pSequence) {
     exit(EXIT_FAILURE);
 }
 
-void SimpleCommand::processRedirects() {
+/**
+ * Sets up all the necessary redirects
+ * @param pSequence pointer to the sequence of this command
+ */
+void SimpleCommand::processRedirects(Sequence *pSequence) {
     int fdIn = std::numeric_limits<int>::min();
     int fdOut = std::numeric_limits<int>::min();
     int fdErr = std::numeric_limits<int>::min();
 
     std::vector<std::string> errors;
 
-    // TODO replace redit ~/ with home
-
     for (const auto &redirect : redirects) {
 
-        if (!redirect.getNewFile().empty() &&
+        std::string newFile = redirect.getNewFile();
+        unsigned long tildeIndex = newFile.find('~');
+
+        // e.g. ~/Documents/input.txt
+        if (tildeIndex == 0) {
+            // remove ~ character
+            newFile.erase(0, 1);
+            // insert the home path at the begin
+            newFile.insert(0, pSequence->getHomeString());
+        }
+
+        if (!newFile.empty() &&
             (redirect.getType() == IORedirect::OUTPUT || redirect.getType() == IORedirect::APPEND)) {
             // We need to output to another filedescriptor
 
             // set up append or overwrite flags
             int flags = redirect.getType() == IORedirect::OUTPUT ? IORedirect::TRUNC_FLAGS : IORedirect::APPEND_FLAGS;
-            unsigned long found = redirect.getNewFile().find('&');
+            unsigned long found = newFile.find('&');
 
             if (redirect.getOldFileDescriptor() == 1) {
                 // The old one was stdout
 
                 if (found == 0) {
                     // get the new one after &
-                    fdOut = stoi(redirect.getNewFile().substr(found + 1));
+                    fdOut = stoi(newFile.substr(found + 1));
                 } else {
-                    fdOut = open(redirect.getNewFile().c_str(), flags, 0644);
+                    fdOut = open(newFile.c_str(), flags, 0644);
                 }
 
                 if (fdOut == -1) {
@@ -114,9 +124,9 @@ void SimpleCommand::processRedirects() {
 
                 if (found == 0) {
                     // get the new one after &
-                    fdErr = stoi(redirect.getNewFile().substr(found + 1));
+                    fdErr = stoi(newFile.substr(found + 1));
                 } else {
-                    fdErr = open(redirect.getNewFile().c_str(), flags, 0644);
+                    fdErr = open(newFile.c_str(), flags, 0644);
                 }
 
                 if (fdErr == -1) {
@@ -126,8 +136,8 @@ void SimpleCommand::processRedirects() {
 
         }
 
-        if (!redirect.getNewFile().empty() && redirect.getType() == IORedirect::INPUT) {
-            fdIn = open(redirect.getNewFile().c_str(), IORedirect::READ_FLAGS, 0644);
+        if (!newFile.empty() && redirect.getType() == IORedirect::INPUT) {
+            fdIn = open(newFile.c_str(), IORedirect::READ_FLAGS, 0644);
             if (fdIn == -1) {
                 checkForErrno(&errors);
             }

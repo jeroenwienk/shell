@@ -38,18 +38,23 @@ void Sequence::execute() {
             exit(0);
         }
 
+        // we need to fork here because there might be async pipes so the parent
+        // has to be able to continue executing
         int childPid = fork();
         if (childPid == 0) {
             p->execute(this);
-            return;
+            exit(0);
+        } else if (childPid < 0) {
+            std::cerr << "Failed to create child process" << std::endl;
+            exit(EXIT_FAILURE);
         } else {
             int returnValue;
-
+            // only wait if its not async pipe
             if (!p->isAsync()) {
                 waitpid(childPid, &returnValue, 0);
             }
         }
-        
+
     }
 }
 

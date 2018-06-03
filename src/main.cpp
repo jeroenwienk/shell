@@ -9,6 +9,7 @@
 #include "../gen/ShellGrammarParser.h"
 #include "CommandVisitor.h"
 #include "Sequence.h"
+#include "IORedirect.h"
 
 class ErrorListener : public antlr4::BaseErrorListener {
     bool seenError;
@@ -33,7 +34,8 @@ int main() {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 
-    int fdHistory = open("/var/tmp/history.txt", O_WRONLY | O_APPEND | O_CREAT, 0644);
+    // normally this would be somewhere in the home directory
+    int fdHistory = open("/var/tmp/history.txt", IORedirect::APPEND_FLAGS, 0644);
 
     while (true) {
         // Print a prompt

@@ -2,13 +2,24 @@ rm 100mb.test ; wget http://cachefly.cachefly.net/100mb.test & ls -al | grep dec
 rm 100mb.test ; wget http://cachefly.cachefly.net/100mb.test ; md5sum 100mb.test
 rm 100mb.test ; wget http://cachefly.cachefly.net/100mb.test
 
-find ~ -empty
+find ~ -empty | grep Pictures
 
 ls -al | grep shell | grep cbp
+ls -al | grep jun | grep a & cat < input.txt & cat < input.txt >> readonly.txt 2> errors.txt
 
+cat < input.txt >> readonly.txt 2>&1
 cat < input.txt 2> errors.txt >> output.txt
-
-
 cat < ~/Documents/forbidden.txt
+cat testCommands.txt | grep cat | grep readonly | wc
 
-cat < /home/jeroen/Documents/forbidden.txt
+~/Documents ; ls -al
+cd ; ls -al
+
+ps aux | grep shell
+./helloworld
+./unknown
+
+ls -al | grep a & ls -al | grep jun
+
+cd /opt/clion-2018.1.2/bin/ ; ./clion.sh
+cd /opt/WebStorm-173.4548.30/bin/ ; ./webstorm.sh
